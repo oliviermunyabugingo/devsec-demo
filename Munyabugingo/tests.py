@@ -212,4 +212,50 @@ class AuthenticationTests(TestCase):
             })
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, f'Attempt {i+1} of 5')
+
+class CSRFSecurityTests(TestCase):
+    """Test suite for CSRF protection and secure workflows"""
+    def setUp(self):
+        self.user = User.objects.create_user(username='csrfuser', password='testpassword123')
+        self.client.login(username='csrfuser', password='testpassword123')
+        self.toggle_url = reverse('Munyabugingo:toggle_like')
+        self.logout_url = reverse('Munyabugingo:logout')
+
+    def test_logout_get_forbidden_or_safe(self):
+        """Verify that GET request to logout doesn't perform immediate logout in Django 5.x"""
+        # In Django 5.x, LogoutView defaults to a confirmation page on GET
+        response = self.client.get(self.logout_url)
+        # Should NOT redirect (302) if it's strictly POST-only or requires confirmation
+        self.assertNotEqual(response.status_code, 302, "Logout via GET should not automatically redirect/logout")
+
+    def test_logout_post_csrf_success(self):
+        """Verify successful logout via POST with CSRF"""
+        response = self.client.post(self.logout_url, follow=True)
+        # Check if user session is cleared
+        self.assertFalse('_auth_user_id' in self.client.session)
+
+    def test_ajax_toggle_like_csrf_required(self):
+        """Verify that toggle_like endpoint requires CSRF protection"""
+        from django.test import Client as DjangoClient
+        client = DjangoClient(enforce_csrf_checks=True)
+        client.login(username='csrfuser', password='testpassword123')
+        
+        # Attempt POST without CSRF token header
+        response = client.post(self.toggle_url, {
+            'action': 'like',
+            'content_id': 'Test Card'
+        })
+        self.assertEqual(response.status_code, 403, "AJAX POST without CSRF should be forbidden")
+
+    def test_ajax_toggle_like_success(self):
+        """Verify successful AJAX request with simulated CSRF (default Client behavior)"""
+        response = self.client.post(self.toggle_url, {
+            'action': 'like',
+            'content_id': 'Test Card'
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['action'], 'like')
 

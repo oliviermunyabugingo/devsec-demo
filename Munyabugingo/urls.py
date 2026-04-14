@@ -46,4 +46,7 @@ urlpatterns = [
     path('password-reset-complete/', auth_views.PasswordResetCompleteView.as_view(
         template_name='olivier/password_reset_complete.html'
     ), name='password_reset_complete'),
+    
+    # AJAX Endpoints
+    path('api/toggle-like/', views.toggle_like, name='toggle_like'),
 ]

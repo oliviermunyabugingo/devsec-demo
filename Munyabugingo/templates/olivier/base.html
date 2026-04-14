@@ -282,7 +282,10 @@
                     {% endif %}
                     <a href="{% url 'Munyabugingo:profile' %}">Profile</a>
                     <a href="{% url 'Munyabugingo:password_change' %}">Change Password</a>
-                    <a href="{% url 'Munyabugingo:logout' %}">Logout ({{ user.username }})</a>
+                    <form action="{% url 'Munyabugingo:logout' %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" style="background: none; border: none; color: var(--text-muted); font-weight: 500; font-size: 0.95rem; font-family: inherit; cursor: pointer; padding: 0; margin-left: 1.5rem; transition: all 0.3s ease;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">Logout ({{ user.username }})</button>
+                    </form>
                 {% else %}
                     <a href="{% url 'Munyabugingo:login' %}">Login</a>
                     <a href="{% url 'Munyabugingo:register' %}">Register</a>

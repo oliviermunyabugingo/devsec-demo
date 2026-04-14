@@ -78,33 +78,71 @@
 </div>
 
 <script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 function toggleLike(btn) {
     const heart = btn.querySelector('.heart');
     const countSpan = btn.querySelector('.count');
     let count = parseInt(countSpan.innerText);
+    const cardTitle = btn.closest('.glass-card').querySelector('h3').innerText;
     
-    if (btn.classList.contains('liked')) {
-        btn.classList.remove('liked');
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = 'var(--glass-border)';
-        btn.style.background = 'none';
-        countSpan.innerText = count - 1;
-        showToast("Unliked successfully", "info");
-    } else {
-        btn.classList.add('liked');
-        btn.style.color = '#ef4444';
-        btn.style.borderColor = '#ef4444';
-        btn.style.background = 'rgba(239, 68, 68, 0.1)';
-        countSpan.innerText = count + 1;
-        showToast("Content Liked!", "success");
-        
-        // Simple animation
-        heart.animate([
-            { transform: 'scale(1)' },
-            { transform: 'scale(1.5)' },
-            { transform: 'scale(1)' }
-        ], { duration: 300 });
-    }
+    const isLiked = btn.classList.contains('liked');
+    const action = isLiked ? 'unlike' : 'like';
+    
+    // Secure AJAX request with CSRF Token
+    fetch("{% url 'Munyabugingo:toggle_like' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": getCookie("csrftoken"),
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: `action=${action}&content_id=${encodeURIComponent(cardTitle)}`
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("CSRF or Network Error");
+        return response.json();
+    })
+    .then(data => {
+        if (isLiked) {
+            btn.classList.remove('liked');
+            btn.style.color = '#94a3b8';
+            btn.style.borderColor = 'var(--glass-border)';
+            btn.style.background = 'none';
+            countSpan.innerText = count - 1;
+            showToast("Unliked successfully", "info");
+        } else {
+            btn.classList.add('liked');
+            btn.style.color = '#ef4444';
+            btn.style.borderColor = '#ef4444';
+            btn.style.background = 'rgba(239, 68, 68, 0.1)';
+            countSpan.innerText = count + 1;
+            showToast("Content Liked!", "success");
+            
+            heart.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.5)' },
+                { transform: 'scale(1)' }
+            ], { duration: 300 });
+        }
+    })
+    .catch(error => {
+        console.error("AJAX Error:", error);
+        showToast("Security error or session expired", "error");
+    });
 }
 </script>
 

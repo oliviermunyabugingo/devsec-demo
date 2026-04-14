@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib import messages
 from .forms import ProfileUpdateForm, CustomUserCreationForm, ProfileDataForm
@@ -68,8 +69,8 @@ def profile_detail(request, pk):
 @permission_required('Munyabugingo.can_view_admin_dashboard', raise_exception=True)
 def admin_dashboard(request):
     """Admin dashboard view for user management"""
-    users = User.objects.all().select_related('profile')
-    return render(request, 'olivier/admin_dashboard.html', {'users': users})
+    users = User.objects.all().select_related('profile').order_by('-date_joined')
+    return render(request, 'olivier/admin_dashboard.html', {'all_users': users})
 
 def get_client_ip(request):
     """Helper to extract IP address from request"""
@@ -117,3 +118,25 @@ class SecureLoginView(LoginView):
             messages.error(self.request, f'Invalid credentials. Attempt {attempts} of {self.max_attempts}.')
             
         return super().form_invalid(form)
+
+@login_required
+def toggle_like(request):
+    """Secure AJAX endpoint for liking content with CSRF protection"""
+    if request.method == 'POST':
+        # In a real app, this would update a database record
+        # For this lab, we'll just simulate a successful state change
+        action = request.POST.get('action')
+        content_id = request.POST.get('content_id')
+        
+        # Simulate validation
+        if not content_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing content ID'}, status=400)
+            
+        return JsonResponse({
+            'status': 'success',
+            'action': action,
+            'content_id': content_id,
+            'message': f'State change successful for {content_id}'
+        })
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
