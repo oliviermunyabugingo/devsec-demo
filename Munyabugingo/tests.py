@@ -1,7 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth.models import User, Group, Permission
 from django.urls import reverse
-from Munyabugingo.models import Profile
+from django.core import mail
+from .models import Profile
 
 class AuthenticationTests(TestCase):
     
@@ -135,4 +136,27 @@ class AuthenticationTests(TestCase):
         self.client.login(username='admin_user', password='pass')
         response = self.client.get(reverse('Munyabugingo:profile_detail', kwargs={'pk': victim.profile.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'victim')
+        self.assertContains(response, 'victim')
+
+    def test_password_reset_request_sends_email(self):
+        """Test that a password reset request actually sends an email"""
+        response = self.client.post(reverse('Munyabugingo:password_reset'), {
+            'email': 'test@example.com'
+        })
+        self.assertEqual(response.status_code, 302)
+        # Check that one message has been sent.
+        self.assertEqual(len(mail.outbox), 1)
+        # Verify recipient
+        self.assertEqual(mail.outbox[0].to, ['test@example.com'])
+        self.assertIn('password reset', mail.outbox[0].body)
+
+    def test_password_reset_enumeration_protection(self):
+        """Test that resetting a non-existent email still redirects to success page (Enumeration Protection)"""
+        response = self.client.post(reverse('Munyabugingo:password_reset'), {
+            'email': 'nonexistent@example.com'
+        })
+        # Should redirect to the "done" page using idiomatic Django check
+        self.assertRedirects(response, reverse('Munyabugingo:password_reset_done'))
+        # No email should be sent for non-existent users
+        self.assertEqual(len(mail.outbox), 0)
+
