@@ -8,5 +8,10 @@ class Profile(models.Model):
     location = models.CharField(max_length=30, blank=True)
     birth_date = models.DateField(null=True, blank=True)
 
+    class Meta:
+        permissions = [
+            ("can_view_admin_dashboard", "Can view administrative dashboard"),
+        ]
+
     def __str__(self):
         return f'{self.user.username} Profile'

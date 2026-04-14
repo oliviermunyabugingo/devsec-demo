@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib import messages
 from .forms import ProfileUpdateForm, CustomUserCreationForm, ProfileDataForm
 from django.contrib.auth import login
@@ -48,7 +48,7 @@ def profile(request):
         'p_form': p_form
     })
 
-@user_passes_test(lambda u: u.is_staff)
+@permission_required('Munyabugingo.can_view_admin_dashboard', raise_exception=True)
 def admin_dashboard(request):
     """Admin-only view to monitor all registered users"""
     users = User.objects.all().order_by('-date_joined')

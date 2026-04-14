@@ -1,6 +1,7 @@
 from django.test import TestCase
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group, Permission
 from django.urls import reverse
+from Munyabugingo.models import Profile
 
 class AuthenticationTests(TestCase):
     
@@ -80,3 +81,25 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'WELCOME')
         self.assertContains(response, 'testuser')
+
+    def test_standard_user_cannot_access_admin_dashboard(self):
+        """Test authenticated user without permission gets 403 on admin dashboard"""
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('Munyabugingo:admin_dashboard'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_privileged_user_can_access_admin_dashboard(self):
+        """Test privileged user can access admin dashboard"""
+        # Create privileged user and add permission
+        privileged_user = User.objects.create_user(
+            username='privuser',
+            password='testpass123',
+            email='priv@example.com'
+        )
+        permission = Permission.objects.get(codename='can_view_admin_dashboard')
+        privileged_user.user_permissions.add(permission)
+        
+        self.client.login(username='privuser', password='testpass123')
+        response = self.client.get(reverse('Munyabugingo:admin_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'User Management')
