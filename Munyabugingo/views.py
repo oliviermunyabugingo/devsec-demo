@@ -3,8 +3,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test, per
 from django.contrib import messages
 from .forms import ProfileUpdateForm, CustomUserCreationForm, ProfileDataForm
 from django.contrib.auth import login
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
+from django.core.cache import cache
 from .models import Profile
 
 def register(request):
@@ -65,8 +67,53 @@ def profile_detail(request, pk):
 
 @permission_required('Munyabugingo.can_view_admin_dashboard', raise_exception=True)
 def admin_dashboard(request):
-    """Admin-only view to monitor all registered users"""
-    users = User.objects.all().order_by('-date_joined')
-    return render(request, 'olivier/admin_dashboard.html', {
-        'all_users': users
-    })
+    """Admin dashboard view for user management"""
+    users = User.objects.all().select_related('profile')
+    return render(request, 'olivier/admin_dashboard.html', {'users': users})
+
+def get_client_ip(request):
+    """Helper to extract IP address from request"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+class SecureLoginView(LoginView):
+    """Login view with brute-force protection using IP-based throttling"""
+    template_name = 'olivier/login.html'
+    max_attempts = 5
+    lockout_time = 900  # 15 minutes in seconds
+
+    def dispatch(self, request, *args, **kwargs):
+        ip = get_client_ip(request)
+        lockout_key = f'lockout_{ip}'
+        
+        if cache.get(lockout_key):
+            messages.error(request, 'Your IP has been temporarily blocked due to too many failed login attempts. Please try again in 15 minutes.')
+            return render(request, self.template_name, {'form': self.get_form()})
+            
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Successful login: reset attempts for this IP
+        ip = get_client_ip(self.request)
+        cache.delete(f'attempts_{ip}')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Failed attempt: increment counter
+        ip = get_client_ip(self.request)
+        attempts_key = f'attempts_{ip}'
+        attempts = cache.get(attempts_key, 0) + 1
+        
+        if attempts >= self.max_attempts:
+            # Trigger lockout
+            cache.set(f'lockout_{ip}', True, self.lockout_time)
+            messages.error(self.request, 'Too many failed attempts. Your IP is now blocked for 15 minutes.')
+        else:
+            cache.set(attempts_key, attempts, 300) # Reset window of 5 minutes
+            messages.error(self.request, f'Invalid credentials. Attempt {attempts} of {self.max_attempts}.')
+            
+        return super().form_invalid(form)

@@ -2,12 +2,14 @@ from django.test import TestCase
 from django.contrib.auth.models import User, Group, Permission
 from django.urls import reverse
 from django.core import mail
+from django.core.cache import cache
 from .models import Profile
 
 class AuthenticationTests(TestCase):
     
     def setUp(self):
-        """Set up test data"""
+        """Set up test data and clear cache"""
+        cache.clear()
         self.test_user = User.objects.create_user(
             username='testuser',
             password='testpass123',
@@ -159,4 +161,55 @@ class AuthenticationTests(TestCase):
         self.assertRedirects(response, reverse('Munyabugingo:password_reset_done'))
         # No email should be sent for non-existent users
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_login_brute_force_lockout(self):
+        """Test that multiple failed login attempts trigger an IP lockout"""
+        login_url = reverse('Munyabugingo:login')
+        
+        # Perform 5 failed attempts
+        for i in range(5):
+            response = self.client.post(login_url, {
+                'username': 'testuser',
+                'password': 'wrongpassword'
+            })
+            self.assertEqual(response.status_code, 200) # Returns form with error
+            if i < 4:
+                self.assertContains(response, f'Attempt {i+1} of 5')
+            else:
+                self.assertContains(response, 'Too many failed attempts')
+
+        # The 6th attempt should be blocked before even checking credentials
+        response = self.client.post(login_url, {
+            'username': 'testuser',
+            'password': 'testpass123' # Correct password
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'temporarily blocked')
+
+    def test_login_success_resets_counter(self):
+        """Test that a successful login resets the failed attempts counter"""
+        login_url = reverse('Munyabugingo:login')
+        
+        # 3 failed attempts
+        for i in range(3):
+            self.client.post(login_url, {
+                'username': 'testuser',
+                'password': 'wrongpassword'
+            })
+            
+        # 1 successful login
+        response = self.client.post(login_url, {
+            'username': 'testuser',
+            'password': 'testpass123'
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        # 3 more failed attempts should not trigger lockout yet (as counter was reset)
+        for i in range(3):
+            response = self.client.post(login_url, {
+                'username': 'testuser',
+                'password': 'wrongpassword'
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, f'Attempt {i+1} of 5')
 
