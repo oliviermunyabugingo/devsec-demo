@@ -277,6 +277,9 @@
             <div class="nav-links">
                 {% if user.is_authenticated %}
                     <a href="{% url 'Munyabugingo:dashboard' %}">Dashboard</a>
+                    {% if user.is_staff %}
+                        <a href="{% url 'Munyabugingo:admin_dashboard' %}" style="color: #818cf8; font-weight: 600;">Admin Dash</a>
+                    {% endif %}
                     <a href="{% url 'Munyabugingo:profile' %}">Profile</a>
                     <a href="{% url 'Munyabugingo:password_change' %}">Change Password</a>
                     <a href="{% url 'Munyabugingo:logout' %}">Logout ({{ user.username }})</a>

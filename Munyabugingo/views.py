@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from .forms import ProfileUpdateForm, CustomUserCreationForm, ProfileDataForm
 from django.contrib.auth import login
+from django.contrib.auth.models import User
 
 def register(request):
     """User registration view using custom form"""
@@ -45,4 +46,12 @@ def profile(request):
     return render(request, 'olivier/profile.html', {
         'u_form': u_form,
         'p_form': p_form
+    })
+
+@user_passes_test(lambda u: u.is_staff)
+def admin_dashboard(request):
+    """Admin-only view to monitor all registered users"""
+    users = User.objects.all().order_by('-date_joined')
+    return render(request, 'olivier/admin_dashboard.html', {
+        'all_users': users
     })

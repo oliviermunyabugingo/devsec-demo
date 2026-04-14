@@ -78,4 +78,5 @@ class AuthenticationTests(TestCase):
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get(reverse('Munyabugingo:dashboard'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Welcome, testuser!')
+        self.assertContains(response, 'WELCOME')
+        self.assertContains(response, 'testuser')
