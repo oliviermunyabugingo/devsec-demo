@@ -26,5 +26,6 @@ urlpatterns = [
     
     # Profile view
     path('profile/', views.profile, name='profile'),
+    path('profile/<int:pk>/', views.profile_detail, name='profile_detail'),
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
 ]

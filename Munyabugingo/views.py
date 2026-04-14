@@ -1,9 +1,11 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib import messages
 from .forms import ProfileUpdateForm, CustomUserCreationForm, ProfileDataForm
 from django.contrib.auth import login
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
+from .models import Profile
 
 def register(request):
     """User registration view using custom form"""
@@ -46,6 +48,19 @@ def profile(request):
     return render(request, 'olivier/profile.html', {
         'u_form': u_form,
         'p_form': p_form
+    })
+
+@login_required
+def profile_detail(request, pk):
+    """Secure profile detail view with IDOR protection"""
+    profile_obj = get_object_or_404(Profile, pk=pk)
+    
+    # IDOR check: Verify owner or privileged access
+    if profile_obj.user != request.user and not request.user.has_perm('Munyabugingo.can_view_admin_dashboard'):
+        raise PermissionDenied
+        
+    return render(request, 'olivier/profile_detail.html', {
+        'profile': profile_obj
     })
 
 @permission_required('Munyabugingo.can_view_admin_dashboard', raise_exception=True)

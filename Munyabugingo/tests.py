@@ -103,3 +103,36 @@ class AuthenticationTests(TestCase):
         response = self.client.get(reverse('Munyabugingo:admin_dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'User Management')
+
+    def test_user_can_view_own_profile_detail(self):
+        """Test user can successfully view their own profile detail page"""
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('Munyabugingo:profile_detail', kwargs={'pk': self.test_user.profile.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'testuser')
+
+    def test_user_cannot_view_other_profile_detail_idor(self):
+        """Test user cannot view another user's profile detail (IDOR Prevention)"""
+        # Create another user
+        other_user = User.objects.create_user(username='other', password='pass')
+        
+        self.client.login(username='testuser', password='testpass123')
+        # Attempt to access other_user's profile
+        response = self.client.get(reverse('Munyabugingo:profile_detail', kwargs={'pk': other_user.profile.pk}))
+        # Should be forbidden
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_view_any_profile_detail(self):
+        """Test privileged user can view any profile detail page"""
+        # Create privileged user
+        privileged_user = User.objects.create_user(username='admin_user', password='pass')
+        perm = Permission.objects.get(codename='can_view_admin_dashboard')
+        privileged_user.user_permissions.add(perm)
+        
+        # Create a victim user
+        victim = User.objects.create_user(username='victim', password='pass')
+        
+        self.client.login(username='admin_user', password='pass')
+        response = self.client.get(reverse('Munyabugingo:profile_detail', kwargs={'pk': victim.profile.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'victim')
