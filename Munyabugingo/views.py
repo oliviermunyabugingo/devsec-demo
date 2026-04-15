@@ -187,6 +187,14 @@ class SecureLoginView(LoginView):
             
         return super().form_invalid(form)
 
+class SecureLogoutView(auth_views.LogoutView):
+    """Secure logout view that prevents open redirects"""
+    def get_success_url(self):
+        """Enforce redirect safety for the 'next' parameter"""
+        from django.conf import settings
+        default_redirect = settings.LOGOUT_REDIRECT_URL if hasattr(settings, 'LOGOUT_REDIRECT_URL') else reverse('Munyabugingo:login')
+        return get_safe_redirect_url(self.request, default_redirect)
+
 @login_required
 def toggle_like(request):
     """Secure AJAX endpoint for liking content with CSRF protection"""
@@ -210,7 +218,12 @@ def toggle_like(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
 class AuditPasswordChangeView(auth_views.PasswordChangeView):
-    """Subclassed to log successful password changes"""
+    """Subclassed to log successful password changes and prevent open redirects"""
+    def get_success_url(self):
+        """Enforce redirect safety for the 'next' parameter"""
+        default_url = reverse('Munyabugingo:password_change_done')
+        return get_safe_redirect_url(self.request, default_url)
+
     def form_valid(self, form):
         response = super().form_valid(form)
         log_audit_event('PASSWORD_CHANGE', user=self.request.user, request=self.request)
@@ -224,7 +237,12 @@ class AuditPasswordResetView(auth_views.PasswordResetView):
         return super().form_valid(form)
 
 class AuditPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
-    """Subclassed to log successful password reset completion"""
+    """Subclassed to log successful reset completion and prevent open redirects"""
+    def get_success_url(self):
+        """Enforce redirect safety for the 'next' parameter"""
+        default_url = reverse('Munyabugingo:password_reset_complete')
+        return get_safe_redirect_url(self.request, default_url)
+
     def form_valid(self, form):
         response = super().form_valid(form)
         # self.user is established by the parent view from the token

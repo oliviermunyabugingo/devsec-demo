@@ -10,15 +10,14 @@ urlpatterns = [
     
     # Login/Logout
     path('login/', views.SecureLoginView.as_view(), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', views.SecureLogoutView.as_view(), name='logout'),
     
     # Dashboard (protected)
     path('dashboard/', views.dashboard, name='dashboard'),
     
     # Password change
     path('password-change/', views.AuditPasswordChangeView.as_view(
-        template_name='olivier/password_change.html',
-        success_url='/password-change-done/'
+        template_name='olivier/password_change.html'
     ), name='password_change'),
     path('password-change-done/', auth_views.PasswordChangeDoneView.as_view(
         template_name='olivier/password_change_done.html'
@@ -40,8 +39,7 @@ urlpatterns = [
         template_name='olivier/password_reset_done.html'
     ), name='password_reset_done'),
     path('password-reset-confirm/<uidb64>/<token>/', views.AuditPasswordResetConfirmView.as_view(
-        template_name='olivier/password_reset_confirm.html',
-        success_url='/password-reset-complete/'
+        template_name='olivier/password_reset_confirm.html'
     ), name='password_reset_confirm'),
     path('password-reset-complete/', auth_views.PasswordResetCompleteView.as_view(
         template_name='olivier/password_reset_complete.html'
