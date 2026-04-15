@@ -332,4 +332,60 @@ class OpenRedirectSecurityTests(TestCase):
         })
         self.assertNotEqual(response.url, self.evil_url)
         self.assertRedirects(response, self.profile_url, fetch_redirect_response=False)
+
+class XSSSecurityTests(TestCase):
+    """Test suite for Cross-Site Scripting (XSS) prevention"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='xsstester', password='password123')
+        # Inject malicious payload in bio (user-controlled content)
+        self.malicious_payload = '<script>alert("XSS")</script>'
+        self.user.profile.bio = self.malicious_payload
+        self.user.profile.save()
+
+    def test_profile_bio_escapes_html(self):
+        """
+        Test that stored malicious HTML in a user's bio is properly escaped
+        when rendered on the profile detail page, preventing stored XSS.
+        """
+        url = reverse('Munyabugingo:profile_detail', args=[self.user.profile.pk])
+        
+        self.client.login(username='xsstester', password='password123')
+        response = self.client.get(url)
+        
+        # Check that the raw script tags are NOT present in the output
+        self.assertNotContains(response, self.malicious_payload)
+        
+        # Check that the escaped tags ARE present (i.e., &lt;script&gt;)
+        self.assertContains(response, '&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;')
+
+    def test_message_escaping_in_js(self):
+        """
+        Test that messages rendered in base.html's script block are properly
+        escaped for JavaScript using |escapejs to prevent script injection.
+        """
+        from django.template import Template, Context
+        # Malicious payload designed to break out of a JS string literal
+        malicious_msg = "test\"); alert('XSS'); (\""
+        
+        # Mock message object
+        class MockMessage:
+            def __init__(self, message, tags):
+                self.message = message
+                self.tags = tags
+            def __str__(self):
+                return self.message
+
+        mock_messages = [MockMessage(malicious_msg, "success")]
+        
+        # Render the template part that contains the vulnerability
+        t = Template('{% for message in messages %}showToast("{{ message|escapejs }}", "{{ message.tags|escapejs }}");{% endfor %}')
+        c = Context({'messages': mock_messages})
+        rendered = t.render(c)
+        
+        # Verify that common attack characters are escaped for JS (Unicode escapes)
+        self.assertNotIn("\"); alert('XSS'); (\"", rendered)
+        self.assertIn("\\u0022", rendered) # double quote
+        self.assertIn("\\u003B", rendered) # semicolon (escaped by escapejs)
+        self.assertIn("\\u0027", rendered) # single quote
 

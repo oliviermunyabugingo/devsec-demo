@@ -49,4 +49,9 @@ urlpatterns = [
     
     # AJAX Endpoints
     path('api/toggle-like/', views.toggle_like, name='toggle_like'),
+    
+    # Secure File Management
+    path('documents/', views.list_documents, name='list_documents'),
+    path('documents/upload/', views.upload_document, name='upload_document'),
+    path('documents/download/<int:pk>/', views.download_document, name='download_document'),
 ]
