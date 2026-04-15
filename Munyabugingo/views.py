@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import views as auth_views
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.contrib import messages
@@ -10,7 +11,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
 from django.urls import reverse
 from .models import Profile
-from .utils import get_safe_redirect_url
+from .utils import get_safe_redirect_url, log_audit_event
 
 def register(request):
     """User registration view using custom form with safe redirect handling"""
@@ -19,12 +20,12 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            messages.success(request, f'Account created successfully! Welcome, {user.username}!')
-            
+            log_audit_event('USER_REGISTRATION', user=user, request=request)
             # Use safe redirect validation
             redirect_to = get_safe_redirect_url(request, reverse('Munyabugingo:dashboard'))
             return redirect(redirect_to)
         else:
+            log_audit_event('USER_REGISTRATION', status='FAILURE', request=request, metadata={'errors': form.errors})
             messages.error(request, 'Please correct the errors below.')
     else:
         form = CustomUserCreationForm()
@@ -47,6 +48,7 @@ def profile(request):
         if u_form.is_valid() and p_form.is_valid():
             u_form.save()
             p_form.save()
+            log_audit_event('PROFILE_UPDATE', user=request.user, request=request)
             messages.success(request, 'Your profile has been updated!')
             
             # Use safe redirect validation if coming from another page
@@ -104,6 +106,7 @@ class SecureLoginView(LoginView):
         lockout_key = f'lockout_{ip}'
         
         if cache.get(lockout_key):
+            log_audit_event('LOGIN_LOCKOUT', request=request, status='BLOCKED', metadata={'ip': ip})
             messages.error(request, 'Your IP has been temporarily blocked due to too many failed login attempts. Please try again in 15 minutes.')
             return render(request, self.template_name, {'form': self.get_form()})
             
@@ -112,6 +115,7 @@ class SecureLoginView(LoginView):
     def form_valid(self, form):
         # Successful login: reset attempts for this IP
         ip = get_client_ip(self.request)
+        log_audit_event('LOGIN_SUCCESS', user=form.get_user(), request=self.request)
         cache.delete(f'attempts_{ip}')
         return super().form_valid(form)
 
@@ -124,9 +128,11 @@ class SecureLoginView(LoginView):
         if attempts >= self.max_attempts:
             # Trigger lockout
             cache.set(f'lockout_{ip}', True, self.lockout_time)
+            log_audit_event('LOGIN_FAILURE', status='LOCKOUT_TRIGGERED', request=self.request, metadata={'username': form.data.get('username'), 'attempts': attempts})
             messages.error(self.request, 'Too many failed attempts. Your IP is now blocked for 15 minutes.')
         else:
             cache.set(attempts_key, attempts, 300) # Reset window of 5 minutes
+            log_audit_event('LOGIN_FAILURE', status='FAILURE', request=self.request, metadata={'username': form.data.get('username'), 'attempt_count': attempts})
             messages.error(self.request, f'Invalid credentials. Attempt {attempts} of {self.max_attempts}.')
             
         return super().form_invalid(form)
@@ -152,3 +158,25 @@ def toggle_like(request):
         })
     
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+
+class AuditPasswordChangeView(auth_views.PasswordChangeView):
+    """Subclassed to log successful password changes"""
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_audit_event('PASSWORD_CHANGE', user=self.request.user, request=self.request)
+        return response
+
+class AuditPasswordResetView(auth_views.PasswordResetView):
+    """Subclassed to log password reset requests"""
+    def form_valid(self, form):
+        email = form.cleaned_data.get('email')
+        log_audit_event('PASSWORD_RESET_REQUEST', request=self.request, metadata={'email': email})
+        return super().form_valid(form)
+
+class AuditPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    """Subclassed to log successful password reset completion"""
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # self.user is established by the parent view from the token
+        log_audit_event('PASSWORD_RESET_COMPLETE', user=self.user, request=self.request)
+        return response

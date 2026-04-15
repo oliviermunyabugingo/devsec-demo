@@ -16,7 +16,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     
     # Password change
-    path('password-change/', auth_views.PasswordChangeView.as_view(
+    path('password-change/', views.AuditPasswordChangeView.as_view(
         template_name='olivier/password_change.html',
         success_url='/password-change-done/'
     ), name='password_change'),
@@ -31,7 +31,7 @@ urlpatterns = [
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
     
     # Password Reset
-    path('password-reset/', auth_views.PasswordResetView.as_view(
+    path('password-reset/', views.AuditPasswordResetView.as_view(
         template_name='olivier/password_reset_form.html',
         email_template_name='olivier/password_reset_email.html',
         success_url='/password-reset/done/'
@@ -39,7 +39,7 @@ urlpatterns = [
     path('password-reset/done/', auth_views.PasswordResetDoneView.as_view(
         template_name='olivier/password_reset_done.html'
     ), name='password_reset_done'),
-    path('password-reset-confirm/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+    path('password-reset-confirm/<uidb64>/<token>/', views.AuditPasswordResetConfirmView.as_view(
         template_name='olivier/password_reset_confirm.html',
         success_url='/password-reset-complete/'
     ), name='password_reset_confirm'),
