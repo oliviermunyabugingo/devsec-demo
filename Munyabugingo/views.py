@@ -41,17 +41,17 @@ def dashboard(request):
 
 @login_required
 def profile(request):
-    """User profile view with dual form update and safe redirect management"""
+    """User profile view with dual form update and secure file handling"""
     if request.method == 'POST':
         u_form = ProfileUpdateForm(request.POST, instance=request.user)
-        p_form = ProfileDataForm(request.POST, instance=request.user.profile)
+        # Pass request.FILES for avatar upload
+        p_form = ProfileDataForm(request.POST, request.FILES, instance=request.user.profile)
         if u_form.is_valid() and p_form.is_valid():
             u_form.save()
             p_form.save()
             log_audit_event('PROFILE_UPDATE', user=request.user, request=request)
             messages.success(request, 'Your profile has been updated!')
             
-            # Use safe redirect validation if coming from another page
             redirect_to = get_safe_redirect_url(request, reverse('Munyabugingo:profile'))
             return redirect(redirect_to)
     else:
@@ -62,6 +62,56 @@ def profile(request):
         'u_form': u_form,
         'p_form': p_form
     })
+
+@login_required
+def list_documents(request):
+    """List documents belonging to the authenticated user"""
+    from .models import Document
+    documents = Document.objects.filter(user=request.user).order_by('-uploaded_at')
+    return render(request, 'olivier/documents.html', {'documents': documents})
+
+@login_required
+def upload_document(request):
+    """Handle secure document upload"""
+    from .forms import DocumentUploadForm
+    if request.method == 'POST':
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            document = form.save(commit=False)
+            document.user = request.user
+            document.save()
+            log_audit_event('DOCUMENT_UPLOAD', user=request.user, request=request, metadata={'title': document.title})
+            messages.success(request, 'Document uploaded successfully!')
+            return redirect('Munyabugingo:list_documents')
+    else:
+        form = DocumentUploadForm()
+    
+    return render(request, 'olivier/upload_document.html', {'form': form})
+
+@login_required
+def download_document(request, pk):
+    """Secure document download with ownership check (Prevent IDOR)"""
+    from .models import Document
+    from django.http import HttpResponse, FileResponse
+    import os
+    
+    document = get_object_or_404(Document, pk=pk)
+    
+    # Secure Authorization Check
+    if document.user != request.user and not request.user.has_perm('Munyabugingo.can_view_admin_dashboard'):
+        log_audit_event('UNAUTHORIZED_DOWNLOAD_ATTEMPT', user=request.user, request=request, metadata={'document_id': pk})
+        raise PermissionDenied
+    
+    # Serve file using FileResponse
+    file_path = document.file.path
+    if os.path.exists(file_path):
+        response = FileResponse(open(file_path, 'rb'), content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+        log_audit_event('DOCUMENT_DOWNLOAD', user=request.user, request=request, metadata={'document_id': pk})
+        return response
+    
+    messages.error(request, 'File not found.')
+    return redirect('Munyabugingo:list_documents')
 
 @login_required
 def profile_detail(request, pk):

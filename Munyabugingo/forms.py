@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Profile
+from .models import Profile, Document
 
 class CustomUserCreationForm(UserCreationForm):
     """Extended registration form including email and styling"""
@@ -31,12 +31,24 @@ class ProfileUpdateForm(forms.ModelForm):
         }
 
 class ProfileDataForm(forms.ModelForm):
-    """Update profile-specific fields"""
+    """Update profile-specific fields including avatar"""
     class Meta:
         model = Profile
-        fields = ['bio', 'location', 'birth_date']
+        fields = ['bio', 'location', 'birth_date', 'avatar']
         widgets = {
             'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'avatar': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+class DocumentUploadForm(forms.ModelForm):
+    """Secure document upload form"""
+    class Meta:
+        model = Document
+        fields = ['title', 'description', 'file']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'file': forms.FileInput(attrs={'class': 'form-control'}),
         }
