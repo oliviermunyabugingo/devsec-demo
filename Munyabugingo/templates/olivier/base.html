@@ -300,7 +300,7 @@
                         {{ message }}
                 <script>
                     window.addEventListener('DOMContentLoaded', () => {
-                        showToast("{{ message }}", "{{ message.tags }}");
+                        showToast("{{ message|escapejs }}", "{{ message.tags|escapejs }}");
                     });
                 </script>
                 {% endfor %}
