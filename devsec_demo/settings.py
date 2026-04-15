@@ -132,3 +132,36 @@ STATIC_URL = 'static/'
 
 # Email configuration for development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Security Audit Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '%(asctime)s [AUDIT] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+        'audit_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            # Log to the app directory to ensure it stays within the workspace boundary
+            'filename': BASE_DIR / 'Munyabugingo/logs/audit.log',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'Munyabugingo.audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
