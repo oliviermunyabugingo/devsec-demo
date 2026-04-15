@@ -6,6 +6,7 @@
 <h1>Create Account</h1>
 <form method="post">
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.GET.next }}">
     {% for field in form %}
     <div class="form-group">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -18,7 +19,7 @@
             </ul>
         {% endif %}
         {% if field.help_text %}
-            <small style="color: var(--text-muted); font-size: 0.75rem; display: block; mt-1;">{{ field.help_text }}</small>
+            <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem;">{{ field.help_text }}</small>
         {% endif %}
     </div>
     {% endfor %}

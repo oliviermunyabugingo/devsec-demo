@@ -258,4 +258,78 @@ class CSRFSecurityTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['action'], 'like')
+
+class OpenRedirectSecurityTests(TestCase):
+    """Test suite for Open Redirect vulnerabilities in authentication flows"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='password123')
+        self.login_url = reverse('Munyabugingo:login')
+        self.register_url = reverse('Munyabugingo:register')
+        self.profile_url = reverse('Munyabugingo:profile')
+        self.safe_url = reverse('Munyabugingo:dashboard')
+        self.evil_url = 'https://evil-attacker.com/malicious'
+
+    def test_login_safe_redirect(self):
+        """Test successful login with safe internal redirect"""
+        response = self.client.post(f"{self.login_url}?next=/profile/", {
+            'username': 'testuser',
+            'password': 'password123'
+        })
+        # Note: LoginView internally handles the redirect preservation or I passed it via GET
+        # SecureLoginView uses get_safe_redirect_url which prefers POST then GET
+        self.assertRedirects(response, '/profile/', fetch_redirect_response=False)
+
+    def test_login_unsafe_redirect_fallback(self):
+        """Test login with unsafe external redirect falling back to default"""
+        response = self.client.post(f"{self.login_url}?next={self.evil_url}", {
+            'username': 'testuser',
+            'password': 'password123'
+        })
+        # Should NOT redirect to evil.com, should go to default success URL
+        self.assertNotEqual(response.url, self.evil_url)
+        self.assertRedirects(response, reverse('Munyabugingo:dashboard'), fetch_redirect_response=False)
+
+    def test_registration_safe_redirect(self):
+        """Test successful registration with safe internal redirect"""
+        response = self.client.post(f"{self.register_url}?next=/profile/", {
+            'username': 'newuser',
+            'email': 'new@test.com',
+            'password1': 'NewPass123!',
+            'password2': 'NewPass123!'
+        })
+        self.assertRedirects(response, '/profile/', fetch_redirect_response=False)
+
+    def test_registration_unsafe_redirect_fallback(self):
+        """Test registration with unsafe external redirect falling back to default"""
+        response = self.client.post(f"{self.register_url}?next={self.evil_url}", {
+            'username': 'newuser2',
+            'email': 'new2@test.com',
+            'password1': 'NewPass123!',
+            'password2': 'NewPass123!'
+        })
+        # Should NOT redirect to evil.com
+        self.assertNotEqual(response.url, self.evil_url)
+        self.assertRedirects(response, reverse('Munyabugingo:dashboard'), fetch_redirect_response=False)
+
+    def test_profile_safe_redirect(self):
+        """Test profile update with safe internal redirect"""
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(f"{self.profile_url}?next={self.safe_url}", {
+            'first_name': 'New',
+            'last_name': 'Name',
+            'email': 'new@email.com'
+        })
+        self.assertRedirects(response, self.safe_url, fetch_redirect_response=False)
+
+    def test_profile_unsafe_redirect_fallback(self):
+        """Test profile update with unsafe external redirect falling back to default"""
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(f"{self.profile_url}?next={self.evil_url}", {
+            'first_name': 'New',
+            'last_name': 'Name',
+            'email': 'new@email.com'
+        })
+        self.assertNotEqual(response.url, self.evil_url)
+        self.assertRedirects(response, self.profile_url, fetch_redirect_response=False)
 

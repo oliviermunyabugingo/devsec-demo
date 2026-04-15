@@ -8,17 +8,22 @@ from django.contrib.auth.views import LoginView
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
+from django.urls import reverse
 from .models import Profile
+from .utils import get_safe_redirect_url
 
 def register(request):
-    """User registration view using custom form"""
+    """User registration view using custom form with safe redirect handling"""
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             messages.success(request, f'Account created successfully! Welcome, {user.username}!')
-            return redirect('Munyabugingo:dashboard')
+            
+            # Use safe redirect validation
+            redirect_to = get_safe_redirect_url(request, reverse('Munyabugingo:dashboard'))
+            return redirect(redirect_to)
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
@@ -35,7 +40,7 @@ def dashboard(request):
 
 @login_required
 def profile(request):
-    """User profile view with dual form update"""
+    """User profile view with dual form update and safe redirect management"""
     if request.method == 'POST':
         u_form = ProfileUpdateForm(request.POST, instance=request.user)
         p_form = ProfileDataForm(request.POST, instance=request.user.profile)
@@ -43,7 +48,10 @@ def profile(request):
             u_form.save()
             p_form.save()
             messages.success(request, 'Your profile has been updated!')
-            return redirect('Munyabugingo:profile')
+            
+            # Use safe redirect validation if coming from another page
+            redirect_to = get_safe_redirect_url(request, reverse('Munyabugingo:profile'))
+            return redirect(redirect_to)
     else:
         u_form = ProfileUpdateForm(instance=request.user)
         p_form = ProfileDataForm(instance=request.user.profile)
@@ -82,10 +90,14 @@ def get_client_ip(request):
     return ip
 
 class SecureLoginView(LoginView):
-    """Login view with brute-force protection using IP-based throttling"""
+    """Login view with brute-force protection and enforced redirect validation"""
     template_name = 'olivier/login.html'
     max_attempts = 5
     lockout_time = 900  # 15 minutes in seconds
+
+    def get_success_url(self):
+        """Explicitly enforce redirect safety using central utility"""
+        return get_safe_redirect_url(self.request, super().get_success_url())
 
     def dispatch(self, request, *args, **kwargs):
         ip = get_client_ip(request)
