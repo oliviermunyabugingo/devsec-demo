@@ -188,11 +188,24 @@ class SecureLoginView(LoginView):
         return super().form_invalid(form)
 
 class SecureLogoutView(auth_views.LogoutView):
-    """Secure logout view that prevents open redirects"""
+    """Secure logout view that prevents open redirects and logs events"""
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            log_audit_event('LOGOUT', user=request.user, request=request)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
-        """Enforce redirect safety for the 'next' parameter"""
+        """Enforce redirect safety with resolved URL patterns"""
         from django.conf import settings
-        default_redirect = settings.LOGOUT_REDIRECT_URL if hasattr(settings, 'LOGOUT_REDIRECT_URL') else reverse('Munyabugingo:login')
+        from django.shortcuts import resolve_url
+        
+        # Check settings for logout redirect and resolve it if it's a named pattern
+        raw_redirect = getattr(settings, 'LOGOUT_REDIRECT_URL', 'Munyabugingo:login')
+        try:
+            default_redirect = resolve_url(raw_redirect)
+        except:
+            default_redirect = reverse('Munyabugingo:login')
+            
         return get_safe_redirect_url(self.request, default_redirect)
 
 @login_required

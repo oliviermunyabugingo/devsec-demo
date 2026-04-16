@@ -131,21 +131,54 @@
         font-size: 0.9rem;
     }
 
-        .nav-links a {
-            margin-left: 1.5rem;
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            white-space: nowrap;
+            flex-wrap: nowrap;
+        }
+
+        .nav-links form {
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Override global button styles for nav logout button */
+        .nav-links button {
+            width: auto !important;
+            margin-top: 0 !important;
+            padding: 0 !important;
+            background: none !important;
+            border-radius: 0 !important;
+        }
+
+        .nav-links button:hover {
+            background: none !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .nav-links a, .nav-links button {
             text-decoration: none;
             color: var(--text-muted);
             font-weight: 500;
             font-size: 0.95rem;
             transition: all 0.3s ease;
             position: relative;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            font-family: inherit;
         }
 
-        .nav-links a:hover {
+        .nav-links a:hover, .nav-links button:hover {
             color: var(--text-main);
         }
 
-        .nav-links a::after {
+        .nav-links a::after, .nav-links button::after {
             content: '';
             position: absolute;
             width: 0;
@@ -156,7 +189,7 @@
             transition: width 0.3s ease;
         }
 
-        .nav-links a:hover::after {
+        .nav-links a:hover::after, .nav-links button:hover::after {
             width: 100%;
         }
 
@@ -282,9 +315,9 @@
                     {% endif %}
                     <a href="{% url 'Munyabugingo:profile' %}">Profile</a>
                     <a href="{% url 'Munyabugingo:password_change' %}">Change Password</a>
-                    <form action="{% url 'Munyabugingo:logout' %}" method="post" style="display: inline;">
+                    <form action="{% url 'Munyabugingo:logout' %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" style="background: none; border: none; color: var(--text-muted); font-weight: 500; font-size: 0.95rem; font-family: inherit; cursor: pointer; padding: 0; margin-left: 1.5rem; transition: all 0.3s ease;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">Logout ({{ user.username }})</button>
+                        <button type="submit">Logout ({{ user.username }})</button>
                     </form>
                 {% else %}
                     <a href="{% url 'Munyabugingo:login' %}">Login</a>
@@ -298,14 +331,17 @@
                 {% for message in messages %}
                     <div class="alert alert-{{ message.tags }}">
                         {{ message }}
-                <script>
-                    window.addEventListener('DOMContentLoaded', () => {
-                        showToast("{{ message|escapejs }}", "{{ message.tags|escapejs }}");
-                    });
-                </script>
+                    </div>
+                    <script>
+                        window.addEventListener('DOMContentLoaded', () => {
+                            showToast("{{ message|escapejs }}", "{{ message.tags|escapejs }}");
+                        });
+                    </script>
                 {% endfor %}
-            {% endif %}
-            
+            </div>
+        {% endif %}
+        
+        <main class="content">
             {% block content %}{% endblock %}
         </main>
 
